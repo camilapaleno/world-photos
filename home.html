@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pcmila — photography</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap" rel="stylesheet">
+  <script src="transitions.js"></script>
+  <script src="theme.js"></script>
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #fff;
+      overflow: hidden;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+    }
+
+    .nav-brand,
+    .nav-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: #333333;
+      text-decoration: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-title:hover {
+      background: #fffbe6;
+      color: #111;
+    }
+
+    .nav-actions {
+      position: relative;
+    }
+
+    .nav-plus {
+      font-family: 'DM Mono', monospace;
+      font-size: 18px;
+      line-height: 1;
+      color: #333;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 8px 4px;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-plus:hover {
+      background: #fffbe6;
+      color: #111;
+    }
+
+    .nav-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      background: #fff;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 5px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.15s, transform 0.15s;
+      min-width: 90px;
+    }
+
+    .nav-dropdown.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .nav-dropdown a {
+      display: block;
+      padding: 9px 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      color: #333;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-dropdown a:hover {
+      background: #fffbe6;
+      color: #111;
+    }
+
+    /* ── Spiral stage ── */
+    #spiral-stage {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    #spiral-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .spiral-item {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .spiral-item img {
+      position: absolute;
+      width: 54px;
+      height: 54px;
+      object-fit: cover;
+      /* centers the image on the parent's zero-size origin;
+         parent transform handles position + radial rotation */
+      transform: translate(-50%, -50%);
+      opacity: 0.75;
+      transition: opacity 0.2s;
+      pointer-events: auto;
+      cursor: default;
+    }
+
+    .spiral-item img:hover {
+      opacity: 1;
+    }
+
+    /* ── Center text ── */
+    #center-text-container {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 10;
+      gap: 0;
+    }
+
+    #center-text {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #fff;
+      padding: 50px;
+      box-shadow: 0px 0px 50px 50px  #fff;
+    }
+
+    .text-small {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(0.8rem, 1.5vw, 1rem);
+      font-weight: 300;
+      color: #333333;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .text-large {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(2rem, 5vw, 4rem);
+      font-weight: 500;
+      color: #333333;
+      line-height: 0.9;
+      margin-bottom: 28px;
+    }
+
+    .text-links {
+      display: flex;
+      gap: 28px;
+      pointer-events: auto;
+    }
+
+    .text-links a {
+      font-family: 'DM Mono', monospace;
+      font-size: clamp(0.7rem, 1.2vw, 0.85rem);
+      font-weight: 300;
+      letter-spacing: 0.12em;
+      color: rgba(0,0,0,0.38);
+      text-decoration: none;
+      text-transform: lowercase;
+      padding: 4px 8px;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .text-links a:hover {
+      background: #fffbe6;
+      color: #111;
+    }
+
+    /* ── Dark mode ── */
+    html.dark body {
+      background: #111;
+    }
+    html.dark .nav-brand,
+    html.dark .nav-title { color: #999; }
+    html.dark .nav-title:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+    html.dark .nav-plus { color: #999; }
+    html.dark .nav-plus:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+    html.dark .nav-dropdown { background: #1c1c1c; border-color: rgba(255,255,255,0.1); }
+    html.dark .nav-dropdown a { color: #999; }
+    html.dark .nav-dropdown a:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+    html.dark #center-text {
+      background-color: #111;
+      box-shadow: 0px 0px 50px 50px #111;
+    }
+    html.dark .text-small,
+    html.dark .text-large { color: #ccc; }
+    html.dark .text-links a { color: rgba(255,255,255,0.3); }
+    html.dark .text-links a:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+    .site-footer { position: fixed; bottom: 0; left: 0; z-index: 40; display: flex; align-items: center; gap: 12px; padding: 12px 20px; font-size: 10px; font-weight: 300; color: rgba(0,0,0,0.32); letter-spacing: 0.04em; pointer-events: none; }
+    .footer-social { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
+    .footer-social a { color: rgba(0,0,0,0.32); text-decoration: none; transition: color 0.15s; display: flex; align-items: center; }
+    .footer-social a:hover { color: #111; }
+    html.dark .site-footer { color: rgba(255,255,255,0.2); }
+    html.dark .footer-social a { color: rgba(255,255,255,0.2); }
+    html.dark .footer-social a:hover { color: #ccc; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <span class="nav-brand">pcmila</span>
+    <a href="home.html" class="nav-title">my photos</a>
+    <div class="nav-actions">
+      <button class="nav-plus" id="navPlus">+</button>
+      <div class="nav-dropdown" id="navDropdown">
+        <a href="library.html">library</a>
+        <a href="canvas.html">canvas</a>
+        <a href="map.html">map</a>
+      </div>
+    </div>
+  </nav>
+
+  <div id="spiral-stage">
+    <svg id="spiral-svg" viewBox="0 0 2000 2000" preserveAspectRatio="xMidYMid meet">
+      <path id="spiral-track"
+            fill="none"
+            stroke="rgba(255,255,255,0.04)"
+            stroke-width="1"
+            stroke-dasharray="3 9"/>
+    </svg>
+    <div id="spiral-items"></div>
+  </div>
+
+  <div id="center-text-container">
+    <div id="center-text">
+      <div class="text-small">photography</div>
+      <div class="text-large">portfolio</div>
+      <div class="text-links">
+        <a href="canvas.html">canvas</a>
+        <a href="library.html">library</a>
+        <a href="map.html">map</a>
+      </div>      
+    </div>
+
+  </div>
+
+  <footer class="site-footer">
+    <span>Camila Paleno © 2026 All rights reserved</span>
+    <div class="footer-social">
+      <a href="https://www.instagram.com/pc.mila/" target="_blank" rel="noopener" aria-label="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+      <a href="https://www.tiktok.com/@pc.mila?lang=en" target="_blank" rel="noopener" aria-label="TikTok"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34l-.03-8.27a8.22 8.22 0 0 0 4.81 1.53v-3.4a4.85 4.85 0 0 1-1.01-.47z"/></svg></a>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script>
+    // Navbar dropdown
+    const navPlus = document.getElementById('navPlus');
+    const navDropdown = document.getElementById('navDropdown');
+    navPlus.addEventListener('click', e => {
+      e.stopPropagation();
+      navDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => navDropdown.classList.remove('open'));
+
+    // ── Spiral animation ──────────────────────────────────────────────────────
+    (function () {
+      // Matches the SVG viewBox="0 0 2000 2000"
+      const VW = 2000, VH = 2000;
+      const cx = 1000, cy = 1000;
+
+      // Build spiral
+      const turns = 3, steps = 600, maxR = 2000;
+      const pts = [{ x: cx, y: cy }];
+      for (let i = 1; i <= steps; i++) {
+        const a = (i / steps) * turns * Math.PI * 2;
+        const r = (i / steps) * maxR;
+        pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+      }
+
+      // Cumulative arc lengths for accurate parametric lookup
+      const arc = [0];
+      for (let i = 1; i < pts.length; i++) {
+        const dx = pts[i].x - pts[i - 1].x;
+        const dy = pts[i].y - pts[i - 1].y;
+        arc.push(arc[i - 1] + Math.sqrt(dx * dx + dy * dy));
+      }
+      const totalLen = arc[arc.length - 1];
+
+      // Set SVG guide path
+      let svgD = `M ${pts[0].x} ${pts[0].y}`;
+      for (let i = 1; i < pts.length; i++) svgD += ` L ${pts[i].x} ${pts[i].y}`;
+      document.getElementById('spiral-track').setAttribute('d', svgD);
+
+      // Interpolate (x, y) at fractional distance t ∈ [0, 1)
+      function posAt(t) {
+        const target = ((t % 1) + 1) % 1 * totalLen;
+        let lo = 0, hi = pts.length - 1;
+        while (lo < hi - 1) {
+          const mid = (lo + hi) >> 1;
+          if (arc[mid] <= target) lo = mid; else hi = mid;
+        }
+        const frac = (arc[hi] - arc[lo]) > 0 ? (target - arc[lo]) / (arc[hi] - arc[lo]) : 0;
+        return {
+          x: pts[lo].x + (pts[hi].x - pts[lo].x) * frac,
+          y: pts[lo].y + (pts[hi].y - pts[lo].y) * frac,
+        };
+      }
+
+      const stageEl = document.getElementById('spiral-stage');
+      const itemsEl = document.getElementById('spiral-items');
+      const spiralPngs = [
+        'spiral/spiral-001.png', 'spiral/spiral-002.png', 'spiral/spiral-003.png',
+        'spiral/spiral-004.png', 'spiral/spiral-005.png', 'spiral/spiral-006.png',
+        'spiral/spiral-007.png', 'spiral/spiral-008.png', 'spiral/spiral-009.png',
+        'spiral/spiral-010.png', 'spiral/spiral-011.png',
+      ].map(src => ({ src, label: '' }));
+      const images  = [...PHOTOS.map(p => ({ src: p.thumb, label: p.title })), ...spiralPngs];
+      const N       = images.length;
+
+      // Build item elements and cache references
+      const elems = images.map((img, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'spiral-item';
+        const imgEl = document.createElement('img');
+        imgEl.src = img.src;
+        imgEl.alt = img.label;
+        imgEl.draggable = false;
+        wrap.appendChild(imgEl);
+        itemsEl.appendChild(wrap);
+        return wrap;
+      });
+
+      // Animation: ~90 s per full loop
+      const SPEED = 1 / 200; // fraction of path per second
+      let progress = 0;
+      let last = null;
+
+      function tick(ts) {
+        if (!last) last = ts;
+        const dt = Math.min((ts - last) / 1000, 0.05);
+        last = ts;
+        progress = (progress + SPEED * dt) % 1;
+
+        // Stage scale/offset (recomputed each frame — cheap, handles resize)
+        const rect = stageEl.getBoundingClientRect();
+        const s  = Math.min(rect.width / VW, rect.height / VH);
+        const ox = (rect.width  - VW * s) / 2;
+        const oy = (rect.height - VH * s) / 2;
+
+        for (let i = 0; i < N; i++) {
+          const t = (progress + (i / N) * 1.0) % 1;
+          const pos = posAt(t);
+
+          // Rotation: image bottom faces spiral center.
+          // CSS rotate(θ) → top faces θ, bottom faces θ+180°.
+          // We want bottom to face: CSS angle of vector (point → center).
+          // CSS angle of vector (vx, vy) in screen space = atan2(vx, -vy).
+          const vx  = cx - pos.x;
+          const vy  = cy - pos.y;
+          const rot = Math.atan2(vx, -vy) * 180 / Math.PI - 180;
+
+          // Screen-space center of this image
+          const sx = ox + pos.x * s;
+          const sy = oy + pos.y * s;
+
+          // translate moves origin to (sx,sy); rotate turns the image so
+          // its bottom faces the spiral center; the child img centers itself
+          // on the origin via its own translate(-50%,-50%).
+          elems[i].style.transform = `translate(${sx}px,${sy}px) rotate(${rot}deg)`;
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticker Path</title>
+  <style>
+    /* ─── TICKER PATH COMPONENT ──────────────────────────────────────────
+       Drop this entire <style> block + the .ticker-path div + the <script>
+       into your page. Customise ITEMS, PATHS, and the .chip styles below.
+    ──────────────────────────────────────────────────────────────────── */
+
+    .ticker-path {
+      position: relative;
+      width: 100%;
+      height: 480px; /* adjust to taste */
+    }
+
+    .ticker-path__svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .ticker-path__item {
+      position: absolute;
+      top: 0;
+      left: 0;
+      offset-rotate: 0deg; /* keep items upright; remove to tilt with path */
+    }
+
+    /* ─── CHIP STYLE — customise to match your site ─── */
+    .ticker-path__chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-family: 'DM Mono', monospace; /* swap for your site font */
+      font-size: 12px;
+      font-weight: 600;
+      color: #111;
+      white-space: nowrap;
+      cursor: default;
+      transition: transform 0.2s ease, background 0.15s;
+      user-select: none;
+    }
+
+    .ticker-path__chip:hover {
+      background: #f5f5f5;
+      transform: scale(1.08);
+    }
+
+    .ticker-path__dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── MARKUP ──────────────────────────────────────────────────────── -->
+<div class="ticker-path" id="tickerPath">
+  <svg class="ticker-path__svg" id="tickerSvg"
+       viewBox="0 0 700 420"
+       preserveAspectRatio="xMidYMid meet">
+    <!--
+      The visible guide path. Set stroke="none" to hide it.
+      stroke-dasharray makes it a dashed line.
+    -->
+    <path id="tickerTrack"
+          fill="none"
+          stroke="rgba(0,0,0,0.08)"
+          stroke-width="1.5"
+          stroke-dasharray="4 8"/>
+  </svg>
+  <!-- items are injected here by JS -->
+  <div id="tickerItems"></div>
+</div>
+
+
+<!-- ─── SCRIPT ──────────────────────────────────────────────────────── -->
+<script>
+(function () {
+
+  /* ── 1. CONFIGURE YOUR ITEMS ──────────────────────────────────────
+     Each object needs:
+       label  — text shown in the chip
+       dot    — accent dot colour (or set dot: null to hide it)
+     Add / remove as many as you like.
+  ──────────────────────────────────────────────────────────────────── */
+  const ITEMS = [
+    { label: "Photography", dot: "#7F77DD" },
+    { label: "Design",      dot: "#1D9E75" },
+    { label: "Frontend",    dot: "#D85A30" },
+    { label: "React",       dot: "#378ADD" },
+    { label: "Motion",      dot: "#D4537E" },
+    { label: "Creative",    dot: "#EF9F27" },
+    { label: "Web",         dot: "#639922" },
+    { label: "Figma",       dot: "#534AB7" },
+  ];
+
+
+  /* ── 2. CHOOSE YOUR PATH ──────────────────────────────────────────
+     Set ACTIVE_PATH to one of: "spiral" | "loop" | "wave" | "curly" | "stripes"
+     Or paste your own SVG path d-string as ACTIVE_PATH directly.
+  ──────────────────────────────────────────────────────────────────── */
+  const ACTIVE_PATH = "wave"; // ← change me
+
+  const PATHS = {
+    spiral: (function () {
+      let d = "M 350 210";
+      const turns = 3.2, steps = 300, maxR = 175;
+      for (let i = 1; i <= steps; i++) {
+        const a = (i / steps) * turns * Math.PI * 2;
+        const r = (i / steps) * maxR;
+        d += ` L ${350 + Math.cos(a) * r} ${210 + Math.sin(a) * r}`;
+      }
+      return d;
+    })(),
+    loop:    "M 100 380 C 100 200 200 80 300 160 C 400 240 420 340 360 360 C 300 380 260 300 300 240 C 340 180 420 160 500 200 C 580 240 620 340 600 380",
+    wave:    "M 0 210 C 100 80 200 340 350 210 C 500 80 600 340 700 210",
+    curly:   "M 60 380 C 60 200 160 100 220 180 C 280 260 240 340 180 320 C 120 300 140 200 220 200 C 340 200 420 80 440 180 C 460 280 400 360 360 340 C 320 320 340 240 400 240 C 500 240 600 160 640 80",
+    stripes: "M 0 350 L 350 70 M 350 420 L 700 140",
+  };
+
+
+  /* ── 3. ANIMATION SETTINGS ────────────────────────────────────────
+     speed   — how fast items move (higher = faster)
+     direction — 1 = forward, -1 = reverse
+  ──────────────────────────────────────────────────────────────────── */
+  const CONFIG = {
+    speed: 4,
+    direction: 1,
+  };
+
+
+  /* ── INTERNALS — no need to edit below this line ─────────────────── */
+  const VW = 700, VH = 420;
+  const N = ITEMS.length;
+  const pathD = PATHS[ACTIVE_PATH] || ACTIVE_PATH;
+
+  const stageEl  = document.getElementById("tickerPath");
+  const trackEl  = document.getElementById("tickerTrack");
+  const itemsEl  = document.getElementById("tickerItems");
+
+  trackEl.setAttribute("d", pathD);
+
+  function getTransform() {
+    const r = stageEl.getBoundingClientRect();
+    const s = Math.min(r.width / VW, r.height / VH);
+    const ox = (r.width  - VW * s) / 2;
+    const oy = (r.height - VH * s) / 2;
+    return { s, ox, oy };
+  }
+
+  function applyTransforms() {
+    const { s, ox, oy } = getTransform();
+    for (let i = 0; i < N; i++) {
+      const el = document.getElementById("tp-item-" + i);
+      if (!el) continue;
+      el.style.offsetPath = `path('${pathD}')`;
+      el.style.transform  = `translate(${ox}px, ${oy}px) scale(${s})`;
+    }
+  }
+
+  // Build item DOM
+  ITEMS.forEach((it, i) => {
+    const el = document.createElement("div");
+    el.id = "tp-item-" + i;
+    el.className = "ticker-path__item";
+    el.innerHTML = `
+      <div class="ticker-path__chip">
+        ${it.dot ? `<span class="ticker-path__dot" style="background:${it.dot}"></span>` : ""}
+        ${it.label}
+      </div>`;
+    itemsEl.appendChild(el);
+  });
+
+  applyTransforms();
+  window.addEventListener("resize", applyTransforms);
+
+  // Animation loop
+  let progress = 0;
+  let last = null;
+
+  function tick(ts) {
+    if (!last) last = ts;
+    const dt = Math.min((ts - last) / 1000, 0.05);
+    last = ts;
+    progress = (progress + CONFIG.direction * CONFIG.speed * 2.5 * dt + 100) % 100;
+
+    for (let i = 0; i < N; i++) {
+      const el = document.getElementById("tp-item-" + i);
+      if (!el) continue;
+      el.style.offsetDistance = ((progress + i * (100 / N)) % 100) + "%";
+    }
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+
+})();
+</script>
+
+</body>
+</html>

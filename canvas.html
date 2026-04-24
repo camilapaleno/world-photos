@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>my photos — canvas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap" rel="stylesheet">
+  <script src="transitions.js"></script>
+  <script src="theme.js"></script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #fff;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+    }
+    .nav-brand, .nav-title {
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: #111;
+      text-decoration: none;
+      padding: 4px 8px;
+      border-radius: 3px;
+    }
+    .nav-actions { position: relative; }
+    .nav-plus {
+      font-size: 18px; line-height: 1;
+      color: #111;
+      background: none; border: none;
+      cursor: pointer; padding: 2px 8px 4px;
+      border-radius: 3px;
+    }
+    .nav-dropdown {
+      position: absolute; right: 0; top: calc(100% + 4px);
+      background: #fff; border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 5px; overflow: hidden;
+      opacity: 0; pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.15s, transform 0.15s;
+      min-width: 90px;
+    }
+    .nav-dropdown.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .nav-dropdown a {
+      display: block; padding: 9px 16px;
+      font-size: 12px; letter-spacing: 0.03em;
+      color: #111; text-decoration: none;
+      transition: background 0.15s;
+    }
+    .nav-dropdown a:hover { background: #fffbe6; }
+
+    /* ── Edge fades ── */
+    /* .fade-edge {
+      position: fixed;
+      left: 0; right: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .fade-edge.top {
+      top: 0; height: 72px;
+      background: linear-gradient(to bottom, #f5f3ef 15%, transparent);
+    }
+    .fade-edge.bottom {
+      bottom: 0; height: 72px;
+      background: linear-gradient(to top, #f5f3ef 15%, transparent);
+    }
+    .fade-edge.left {
+      top: 0; bottom: 0;
+      left: 0; width: 72px;
+      background: linear-gradient(to right, #f5f3ef 15%, transparent);
+    }
+    .fade-edge.right {
+      top: 0; bottom: 0;
+      right: 0; width: 72px;
+      background: linear-gradient(to left, #f5f3ef 15%, transparent);
+    } */
+
+    /* ── Stage ── */
+    #stage {
+      position: fixed; inset: 0;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    #stage.dragging { cursor: grabbing; }
+
+    /* ── World layers (translated containers) ── */
+    #world-far, #world-near, #world-closest {
+      position: absolute;
+      left: 0; top: 0;
+      will-change: transform;
+    }
+
+    /* ── Item ── */
+    .item {
+      position: absolute;
+      /* centered on its world coordinate */
+      transform: translate(-50%, -50%);
+      display: block;
+    }
+
+    .item-far     { width: 180px; }
+    .item-near    { width: 200px; }
+    .item-closest { width: 220px; }
+
+    @media (max-width: 768px) {
+      .item-far     { width: 110px; }
+      .item-near    { width: 125px; }
+      .item-closest { width: 140px; }
+    }
+
+    @media (min-width: 1800px) {
+      .item-far     { width: 240px; }
+      .item-near    { width: 270px; }
+      .item-closest { width: 300px; }
+    }
+
+    .item-img {
+      width: 100%;
+      /* aspect-ratio: 2 / 3; */
+      object-fit: cover;
+      display: block;
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+    }
+
+
+    .item-label {
+      padding: 9px 2px 0;
+      text-decoration: none;
+      display: block;
+    }
+
+    .item-label[href]:not([href="#"]):hover .item-title { text-decoration: underline; }
+    .item-label[href]:not([href="#"]) { cursor: pointer; }
+    .item-label[href="#"] { cursor: default; pointer-events: none; }
+
+    .item-title {
+      font-size: 8px;
+      font-weight: 500;
+      color: #b4b4b4;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .item-sub {
+      font-size: 8px;
+      font-weight: 300;
+      color: #b4b4b4;
+      letter-spacing: 0.05em;
+      margin-top: 2px;
+    }
+
+    /* ── Drag hint ── */
+    #hint {
+      position: fixed;
+      bottom: 28px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      font-weight: 300;
+      color: rgba(0,0,0,0.28);
+      letter-spacing: 0.12em;
+      pointer-events: none;
+      z-index: 20;
+      transition: opacity 1s ease;
+    }
+    #hint.gone { opacity: 0; }
+
+    /* ── Dark mode ── */
+    html.dark body { background: #111; }
+    html.dark .nav-brand,
+    html.dark .nav-title { color: rgba(255,255,255,0.75); }
+    html.dark .nav-plus { color: rgba(255,255,255,0.75); }
+    html.dark .nav-dropdown { background: #1c1c1c; border-color: rgba(255,255,255,0.1); }
+    html.dark .nav-dropdown a { color: #999; }
+    html.dark .nav-dropdown a:hover { background: rgba(255,255,255,0.06); color: #ddd; }
+    html.dark .item-title,
+    html.dark .item-sub { color: #555; }
+
+    /* ── Footer ── */
+    .site-footer {
+      position: fixed;
+      bottom: 0; left: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      font-size: 10px;
+      font-weight: 300;
+      color: rgba(0,0,0,0.32);
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+    .footer-social { display: flex; gap: 10px; align-items: center; pointer-events: auto; }
+    .footer-social a { color: rgba(0,0,0,0.32); text-decoration: none; transition: color 0.15s; display: flex; align-items: center; }
+    .footer-social a:hover { color: #111; }
+    html.dark .site-footer { color: rgba(255,255,255,0.2); }
+    html.dark .footer-social a { color: rgba(255,255,255,0.2); }
+    html.dark .footer-social a:hover { color: #ccc; }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <span class="nav-brand">pcmila</span>
+    <a href="home.html" class="nav-title">my photos</a>
+    <div class="nav-actions">
+      <button class="nav-plus" id="navPlus">+</button>
+      <div class="nav-dropdown" id="navDropdown">
+        <a href="library.html">library</a>
+        <a href="canvas.html">canvas</a>
+        <a href="map.html">map</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="fade-edge top"></div>
+  <div class="fade-edge bottom"></div>
+  <div class="fade-edge left"></div>
+  <div class="fade-edge right"></div>
+
+  <div id="stage">
+    <div id="world-far"></div>
+    <div id="world-near"></div>
+    <div id="world-closest"></div>
+  </div>
+
+  <div id="hint">drag to explore</div>
+
+  <footer class="site-footer">
+    <span>Camila Paleno © 2026 All rights reserved</span>
+    <div class="footer-social">
+      <a href="https://www.instagram.com/pc.mila/" target="_blank" rel="noopener" aria-label="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+      <a href="https://www.tiktok.com/@pc.mila?lang=en" target="_blank" rel="noopener" aria-label="TikTok"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34l-.03-8.27a8.22 8.22 0 0 0 4.81 1.53v-3.4a4.85 4.85 0 0 1-1.01-.47z"/></svg></a>
+    </div>
+  </footer>
+
+  <script src="data.js"></script>
+  <script>
+    // ── Navbar dropdown ────────────────────────────────────────────────────
+    const navPlus     = document.getElementById('navPlus');
+    const navDropdown = document.getElementById('navDropdown');
+    navPlus.addEventListener('click', e => {
+      e.stopPropagation();
+      navDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => navDropdown.classList.remove('open'));
+
+    // ── World geometry ─────────────────────────────────────────────────────
+    // Items are placed in a COL×ROW grid with organic jitter.
+    // The world tiles seamlessly: we build a 3×3 arrangement of tiles so
+    // the user can pan in any direction without hitting an edge.
+
+    const COLS        = 5;
+    const COL_SPACING = 360;   // tight columns — items overlap
+    const ROW_SPACING = 320;   // tight rows — items overlap
+    const CANVAS_PHOTOS = [...PHOTOS.filter(p => !p.hideCanvas), ...CANVAS_ONLY];
+    const ROWS        = Math.ceil(CANVAS_PHOTOS.length / COLS);
+    const WORLD_W     = COLS * COL_SPACING;   // one tile width
+    const WORLD_H     = ROWS * ROW_SPACING;   // one tile height
+
+    // ── Camera / physics state ─────────────────────────────────────────────
+    // rawCamX/Y are the unbounded world-space coordinates of the viewport
+    // centre. We snap them into [−0.5W, 1.5W] each frame — invisible because
+    // items repeat every WORLD_W px (the 3×3 tile trick).
+
+    let rawCamX = WORLD_W  / 2;
+    let rawCamY = WORLD_H  / 2;
+    let velX    = 0, velY    = 0;   // inertia velocity (world px/frame)
+    let parX    = 0, parY    = 0;   // current parallax offset
+    let tParX   = 0, tParY   = 0;   // target parallax (follows mouse)
+
+    const FRICTION     = 0.935;  // per-frame velocity decay (0 = instant stop)
+    const PAR_STRENGTH = 48;     // max parallax travel in px (base)
+    const PAR_EASE     = 0.055;  // how quickly parallax follows mouse
+
+    // Parallax multipliers per layer — far moves least, closest moves most
+    const PAR_FAR     = 0.3;
+    const PAR_NEAR    = 1.0;
+    const PAR_CLOSEST = 2.2;
+
+    // ── Drag state ─────────────────────────────────────────────────────────
+    let isDragging  = false;
+    let hasDragged  = false;
+    let dragStartX  = 0, dragStartY = 0;
+    let lastPX      = 0, lastPY     = 0;
+    const velBuf    = [];   // rolling buffer of {dx,dy,t} for release inertia
+
+    // ── Build 3×3 tiled world (three layers) ─────────────────────────────
+    const worldFar     = document.getElementById('world-far');
+    const worldNear    = document.getElementById('world-near');
+    const worldClosest = document.getElementById('world-closest');
+
+    CANVAS_PHOTOS.forEach((p, i) => {
+      const col   = i % COLS;
+      const row   = Math.floor(i / COLS);
+      const layer = i % 3;   // 0 → far, 1 → near, 2 → closest
+      const target = layer === 0 ? worldFar : layer === 1 ? worldNear : worldClosest;
+      const cls    = layer === 0 ? 'item item-far' : layer === 1 ? 'item item-near' : 'item item-closest';
+
+      // Deterministic jitter — golden-ratio angle spread keeps items organic
+      // but reproducible on every page load.
+      const jx = Math.sin(i * 2.3999) * 80;
+      const jy = Math.cos(i * 1.6180) * 90;
+      const wx  = col * COL_SPACING + COL_SPACING / 2 + jx;
+      const wy  = row * ROW_SPACING + ROW_SPACING / 2 + jy;
+
+      // 3×3 tile copies so panning is seamless in all directions
+      for (let ty = -1; ty <= 1; ty++) {
+        for (let tx = -1; tx <= 1; tx++) {
+          const el = document.createElement('div');
+          el.className = cls;
+          el.style.left = (wx + tx * WORLD_W) + 'px';
+          el.style.top  = (wy + ty * WORLD_H) + 'px';
+
+          const img = document.createElement('img');
+          img.className = 'item-img';
+          img.src       = p.canvas || p.thumb;
+          img.alt       = p.title;
+          img.draggable = false;
+
+          const hasLink = p.url && p.url !== '#';
+          const lbl = document.createElement(hasLink ? 'a' : 'div');
+          lbl.className = 'item-label';
+          if (hasLink) lbl.href = p.url;
+          lbl.innerHTML =
+            `<div class="item-title">${p.title}</div>` +
+            `<div class="item-sub">${p.location}${p.year ? ' · ' + p.year : ''}</div>`;
+
+          el.append(img, lbl);
+          target.appendChild(el);
+        }
+      }
+    });
+
+    // ── Pointer / drag input ───────────────────────────────────────────────
+    const stage = document.getElementById('stage');
+    const hint  = document.getElementById('hint');
+
+    // Capture-phase click handler: swallow drag-clicks so transitions.js
+    // doesn't navigate when the user was actually panning.
+    stage.addEventListener('click', e => {
+      if (hasDragged) {
+        e.stopPropagation();
+        e.preventDefault();
+        hasDragged = false;
+        return;
+      }
+      // Prevent hash links from touching the URL
+      const a = e.target.closest('a');
+      if (a && a.getAttribute('href') === '#') e.preventDefault();
+    }, true);
+
+    stage.addEventListener('pointerdown', e => {
+      // Don't hijack clicks on label links — let them navigate normally
+      if (e.target.closest('.item-label[href]')) return;
+      isDragging = true;
+      hasDragged = false;
+      dragStartX = lastPX = e.clientX;
+      dragStartY = lastPY = e.clientY;
+      velX = velY = 0;
+      velBuf.length = 0;
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add('dragging');
+    });
+
+    stage.addEventListener('pointermove', e => {
+      // Always update parallax target from mouse position
+      tParX = (e.clientX / innerWidth  - 0.5) * PAR_STRENGTH;
+      tParY = (e.clientY / innerHeight - 0.5) * PAR_STRENGTH;
+
+      if (!isDragging) return;
+
+      const dx = e.clientX - lastPX;
+      const dy = e.clientY - lastPY;
+      lastPX = e.clientX;
+      lastPY = e.clientY;
+
+      // Pan the camera in the opposite direction of the drag
+      rawCamX -= dx;
+      rawCamY -= dy;
+
+      // Record movement for release inertia
+      velBuf.push({ dx, dy, t: performance.now() });
+      if (velBuf.length > 6) velBuf.shift();
+
+      // Mark as a real drag once the pointer has moved enough
+      if (Math.hypot(e.clientX - dragStartX, e.clientY - dragStartY) > 6) {
+        hasDragged = true;
+        hint.classList.add('gone');
+      }
+    });
+
+    stage.addEventListener('pointerup', () => {
+      isDragging = false;
+      stage.classList.remove('dragging');
+
+      // Convert recent drag history into release velocity
+      const recent = velBuf.filter(v => performance.now() - v.t < 100);
+      if (recent.length) {
+        // Negative because camera moves opposite to drag direction
+        velX = -(recent.reduce((s, v) => s + v.dx, 0) / recent.length);
+        velY = -(recent.reduce((s, v) => s + v.dy, 0) / recent.length);
+      }
+      velBuf.length = 0;
+    });
+
+    // Touch scroll prevention (already handled by touch-action:none but belt+braces)
+    stage.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+    // ── Animation loop ─────────────────────────────────────────────────────
+    function tick() {
+      requestAnimationFrame(tick);
+
+      // Apply inertia when not actively dragging
+      if (!isDragging) {
+        rawCamX += velX;
+        rawCamY += velY;
+        velX    *= FRICTION;
+        velY    *= FRICTION;
+      }
+
+      // Ease parallax toward mouse target
+      parX += (tParX - parX) * PAR_EASE;
+      parY += (tParY - parY) * PAR_EASE;
+
+      // Seamless tile wrap — snap rawCam into the centre tile's range.
+      // Visually invisible because items repeat every WORLD_W/WORLD_H pixels.
+      if (rawCamX >  WORLD_W * 1.5) rawCamX -= WORLD_W;
+      if (rawCamX < -WORLD_W * 0.5) rawCamX += WORLD_W;
+      if (rawCamY >  WORLD_H * 1.5) rawCamY -= WORLD_H;
+      if (rawCamY < -WORLD_H * 0.5) rawCamY += WORLD_H;
+
+      // Base camera transform (no parallax)
+      const camTx = innerWidth  / 2 - rawCamX;
+      const camTy = innerHeight / 2 - rawCamY;
+
+      // Apply per-layer parallax: far moves least, closest moves most
+      worldFar.style.transform     = `translate(${camTx + parX * PAR_FAR}px,     ${camTy + parY * PAR_FAR}px)`;
+      worldNear.style.transform    = `translate(${camTx + parX * PAR_NEAR}px,    ${camTy + parY * PAR_NEAR}px)`;
+      worldClosest.style.transform = `translate(${camTx + parX * PAR_CLOSEST}px, ${camTy + parY * PAR_CLOSEST}px)`;
+    }
+
+    requestAnimationFrame(tick);
+
+    // Fade hint out after 4 s
+    setTimeout(() => hint.classList.add('gone'), 4000);
+  </script>
+</body>
+</html>
